@@ -1,0 +1,75 @@
+name: Review preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Choose review (marked page) or cleanup (marker-free replacement)
+        type: choice
+        required: true
+        options:
+          - review
+          - cleanup
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      actions: write
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - name: Check dispatch ref
+        run: |
+          if [[ "$GITHUB_REF" != refs/heads/main ]]; then
+            echo 'Dispatch this workflow from the default main branch.' >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.9
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate static digest
+        env:
+          PREVIEW_PHASE: ${{ inputs.phase }}
+          LANE_MARKER: ${{ secrets.LANE_MARKER }}
+        run: ./scripts/generate-pages-preview.sh _site
+
+      - uses: actions/configure-pages@v5
+
+      - id: upload
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+          retention-days: 1
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Delete uploaded artifact
+        if: always() && steps.upload.outputs.artifact_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact_id }}
+        run: gh api --method DELETE "/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID"
