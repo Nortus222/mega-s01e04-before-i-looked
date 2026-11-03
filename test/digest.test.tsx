@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -12,6 +12,7 @@ const config = {
 };
 
 let runsDir: string;
+let testDir: string;
 
 async function writeNight(night: string, contents: string) {
   await writeFile(join(runsDir, `${night}.jsonl`), contents);
@@ -23,12 +24,14 @@ function record(at: string, job: string, status: string, owner: string | null, e
 
 describe('digest routes', () => {
   beforeEach(async () => {
-    runsDir = await mkdtemp(join(tmpdir(), 'rig-digest-'));
+    testDir = await mkdtemp(join(tmpdir(), 'rig-digest-'));
+    runsDir = join(testDir, 'runs');
+    await mkdir(runsDir);
     config.runsDir = runsDir;
   });
 
   afterEach(async () => {
-    await rm(runsDir, { recursive: true, force: true });
+    await rm(testDir, { recursive: true, force: true });
   });
 
   it('renders a night and returns the same sorted rows as JSON', async () => {
@@ -79,7 +82,18 @@ describe('digest routes', () => {
     expect(alphaRow).toBeDefined();
     expect(alphaRow).toContain('class="warn"');
     expect(html).not.toContain('<script>alert("x")</script>');
+
+  });
+
+  it('escapes job, owner and current error text', async () => {
+    await writeNight('2026-10-28', record('2026-10-28T07:00:00-07:00', '<job>', 'fail', '<owner>', '<script>alert(1)</script>'));
+    const page = await createApp(config).request('/digest/2026-10-28');
+    const html = await page.text();
+    expect(page.status).toBe(200);
+    expect(html).toContain('&lt;job&gt;');
+    expect(html).toContain('&lt;owner&gt;');
     expect(html).toContain('&lt;script&gt;');
+    expect(html).not.toContain('<script>');
   });
 
   it('returns 404 for a missing night', async () => {
@@ -126,7 +140,7 @@ describe('digest routes', () => {
   });
 
   it('rejects traversal night names', async () => {
-    const outsideNight = join(tmpdir(), 'outside-night.jsonl');
+    const outsideNight = join(testDir, 'outside-night.jsonl');
     await writeFile(outsideNight, record('2026-10-28T07:00:00Z', 'outside', 'ok', null));
     try {
       const app = createApp(config);

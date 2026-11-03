@@ -31,7 +31,7 @@ export function StatusBoard({ status }: { status: Status }) {
                 )}
               </li>
             );
-          ))}
+          })}
         </ul>
       )}
     </>
