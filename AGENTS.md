@@ -10,6 +10,10 @@ Read first: `docs/vision.md`, `docs/styleguide.md`. Decisions: `docs/adr/`.
 - `pnpm dev` / `pnpm start`: serves on `PORT` (8787). Needs `.env` (copy `.env.example`).
 - `pnpm test`: vitest. `pnpm typecheck`: tsc.
 
+## Git
+
+- Feature pull requests target `main`. Keep the integration checkout read-only.
+
 ## How work moves here
 
 1. A feature starts as a plan: `plan.md` at the root (one at a time). Finished plans live in
