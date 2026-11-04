@@ -4,11 +4,12 @@ set -euo pipefail
 phase=${PREVIEW_PHASE:?PREVIEW_PHASE must be review or cleanup}
 case "$phase" in
   review)
-    if [[ -z "${LANE_MARKER//[[:space:]]/}" ]]; then
+    marker=${LANE_MARKER:-}
+    if [[ -z "${marker//[[:space:]]/}" ]]; then
       echo 'review phase requires a nonempty LANE_MARKER' >&2
       exit 1
     fi
-    export LANE_MARKER
+    export LANE_MARKER="$marker"
     ;;
   cleanup)
     unset LANE_MARKER
